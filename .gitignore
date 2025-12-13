@@ -1,0 +1,10 @@
+.venv/
+.env
+__pycache__/
+*.pyc
+.streamlit/secrets.toml
+storage/
+# Build / packaging artifacts
+*.egg-info/
+dist/
+build/

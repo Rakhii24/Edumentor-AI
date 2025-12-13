@@ -1,0 +1,8 @@
+streamlit
+faiss-cpu
+fastembed
+pymupdf
+google-generativeai
+python-dotenv
+pydantic
+tqdm
