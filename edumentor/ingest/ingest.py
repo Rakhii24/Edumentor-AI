@@ -10,17 +10,49 @@ def ingest_pdf(pdf_path: Path, collection_name: str = "edumentor") -> int:
     vs = VectorStore(collection_name)
     doc = fitz.open(str(pdf_path))
     total = 0
+
     for page_index in tqdm(range(doc.page_count)):
         page = doc.load_page(page_index)
         text = page.get_text()
+
+        # -----------------------------
+        # 🔥 FIX 1: Skip empty pages
+        # -----------------------------
         if not text.strip():
             continue
-        docs = build_doc_entries(pdf_path, page_index + 1, text, pdf_path.stem)
+
+        text_lower = text.lower()
+
+        # -----------------------------
+        # 🔥 FIX 2: Skip TOC / Contents pages
+        # -----------------------------
+        if "table of contents" in text_lower or "contents" in text_lower:
+            continue
+
+        # -----------------------------
+        # 🔥 FIX 3: Skip very early pages (NCERT TOC usually in first 2 pages)
+        # -----------------------------
+        if page_index < 2:
+            continue
+
+        # Build chunks and add to FAISS
+        docs = build_doc_entries(
+            pdf_path,
+            page_index + 1,
+            text,
+            pdf_path.stem
+        )
+
         total += vs.add_documents(docs)
+
     return total
 
 
-def ingest_folder(folder: Path, pattern: str = "*.pdf", collection_name: str = "edumentor") -> int:
+def ingest_folder(
+    folder: Path,
+    pattern: str = "*.pdf",
+    collection_name: str = "edumentor"
+) -> int:
     count = 0
     for p in folder.glob(pattern):
         count += ingest_pdf(p, collection_name)
@@ -38,6 +70,7 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) < 2:
         sys.exit(1)
+
     path = Path(sys.argv[1])
     if path.is_file():
         ingest_pdf(path)

@@ -285,3 +285,4 @@ Streamlit Theme Customization:
 - PyMuPDF for PDF processing
 
 
+If you want me to also add a CODE_OF_CONDUCT, CONTRIBUTING.md, or LICENSE file next, say the word and I'll add them.

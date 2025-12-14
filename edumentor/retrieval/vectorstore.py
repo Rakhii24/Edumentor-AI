@@ -19,7 +19,7 @@ class VectorStore:
 
         self.embed_fn: Callable[[List[str]], List[List[float]]] = self._init_embedder()
 
-        # Load or initialize FAISS index
+        # Load or initialize FAISS index (SAFE)
         self._load_or_create_index()
 
     # -----------------------------
@@ -45,21 +45,30 @@ class VectorStore:
             return _noembed
 
     # -----------------------------
-    # FAISS index handling (FIXED)
+    # FAISS index handling (FIXED & SAFE)
     # -----------------------------
     def _load_or_create_index(self):
-        if self.index_path.exists() and self.meta_path.exists():
-            # ✅ Load existing index
-            self.index = faiss.read_index(str(self.index_path))
-            with open(self.meta_path, "rb") as f:
-                self.metadata = pickle.load(f)
-        else:
-            # 🔥 FIX: detect embedding dimension dynamically
-            test_vec = self.embed_fn(["dimension check"])[0]
-            dim = len(test_vec)
+        try:
+            if self.index_path.exists() and self.meta_path.exists():
+                # ✅ Try loading existing index
+                self.index = faiss.read_index(str(self.index_path))
+                with open(self.meta_path, "rb") as f:
+                    self.metadata = pickle.load(f)
+                print("✅ Loaded existing FAISS index")
+                return
+        except Exception as e:
+            # 🔥 Corrupted index / metadata detected
+            print("⚠️ Corrupted FAISS index detected. Rebuilding...")
+            self.index = None
+            self.metadata = []
 
-            self.index = faiss.IndexFlatL2(dim)
-            self.metadata: List[Dict[str, Any]] = []
+        # 🔄 Safe rebuild
+        test_vec = self.embed_fn(["dimension check"])[0]
+        dim = len(test_vec)
+
+        self.index = faiss.IndexFlatL2(dim)
+        self.metadata: List[Dict[str, Any]] = []
+        print("✅ New FAISS index created")
 
     def _save(self):
         faiss.write_index(self.index, str(self.index_path))
@@ -76,7 +85,7 @@ class VectorStore:
         texts = [d["text"] for d in docs]
         embeddings = np.array(self.embed_fn(texts), dtype=np.float32)
 
-        # FAISS dimension is now guaranteed to match
+        # FAISS dimension is guaranteed to match
         self.index.add(embeddings)
 
         for d in docs:

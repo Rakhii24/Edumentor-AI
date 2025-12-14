@@ -1,5 +1,16 @@
-import streamlit as st
+# =========================
+# STREAMLIT CLOUD PATH FIX
+# =========================
+import sys
 from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR))
+
+# =========================
+# IMPORTS
+# =========================
+import streamlit as st
 from edumentor.config import settings
 from edumentor.ingest.ingest import ingest_pdf, save_uploaded
 from edumentor.retrieval.vectorstore import VectorStore
@@ -29,10 +40,10 @@ top_k = st.sidebar.slider(
 )
 
 if not settings.google_api_key:
-    st.sidebar.warning("Add your API key in the .env file and restart the app.")
+    st.sidebar.warning("Add your API key in Streamlit Secrets and restart the app.")
 
 # -----------------------------
-# PDF Upload (FAISS-safe)
+# PDF Upload
 # -----------------------------
 uploaded = st.sidebar.file_uploader(
     "Upload PDFs (Upload once, reused automatically)",
@@ -41,7 +52,6 @@ uploaded = st.sidebar.file_uploader(
 )
 
 if uploaded:
-    # ✅ FIX HERE
     with st.spinner("Processing PDFs and building knowledge base..."):
         for u in uploaded:
             path = save_uploaded(u.name, u.getvalue())
@@ -53,6 +63,12 @@ if uploaded:
 # -----------------------------
 llm = LLM()
 vs = VectorStore("edumentor")   # FAISS-backed vector store
+
+# ✅ Vector store status
+if vs.index.ntotal == 0:
+    st.sidebar.warning("⚠️ No documents indexed. Upload PDFs.")
+else:
+    st.sidebar.success(f"📚 {vs.index.ntotal} chunks loaded")
 
 # -----------------------------
 # Main UI
@@ -75,7 +91,7 @@ with col1:
     q = st.text_area(
         "Your question",
         height=160,
-        placeholder="Ask a concept, definition, derivation, or numerical problem"
+        placeholder="Ask a concept, definition, derivation, numerical problem, or PDF summary"
     )
     run = st.button("Generate Answer", type="primary")
 
@@ -88,17 +104,53 @@ with col2:
 # -----------------------------
 # Query + Answer
 # -----------------------------
+SUMMARY_KEYWORDS = [
+    "what does this pdf contain",
+    "what is this pdf about",
+    "summarize this pdf",
+    "summary of this pdf",
+    "what topics are covered"
+]
+
 if run and q.strip():
     intent = detect_intent(q)
+    q_lower = q.lower()
+    is_summary_query = any(k in q_lower for k in SUMMARY_KEYWORDS)
 
     with st.spinner("Searching study material..."):
+
         contexts = vs.query(q, top_k=top_k)
 
-    answer = llm.generate(q, contexts, intent, exam_focus)
+        # ✅ DOCUMENT-LEVEL SUMMARY (DYNAMIC)
+        if is_summary_query:
+            if not contexts:
+                answer = (
+                    "⚠️ No indexed content found.\n\n"
+                    "Please upload study PDFs to generate a document summary."
+                )
+            else:
+                titles = {c["metadata"].get("title", "") for c in contexts}
+                pages = sorted({c["metadata"].get("page") for c in contexts if c.get("metadata")})
+
+                answer = (
+                    "📘 **Document Overview (Auto-Generated)**\n\n"
+                    "This PDF primarily covers topics related to:\n\n"
+                    + "\n".join(f"- {t}" for t in titles if t)
+                    + "\n\n"
+                    f"📄 Referenced pages: {pages[:10]}{'...' if len(pages) > 10 else ''}\n\n"
+                    "ℹ️ This summary is generated using semantic retrieval from indexed sections."
+                )
+        else:
+            answer = llm.generate(q, contexts, intent, exam_focus)
 
     st.markdown(
         f"<div class='answer-card'>{answer}</div>",
         unsafe_allow_html=True
+    )
+
+    st.caption(
+        "ℹ️ Note: Responses are generated using Retrieval-Augmented Generation (RAG) "
+        "based on uploaded study material."
     )
 
     if contexts:
