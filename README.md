@@ -17,7 +17,7 @@ EduMentor AI enables students to upload study PDFs, run semantic search against 
 
 - **PDF Ingestion**: Upload and process PDF study materials with automatic chunking and indexing.
 - **Intent Classification**: Detects common question types (definition, derivation, numerical, conceptual) using regex-based patterns found in [edumentor/intent/classifier.py](edumentor/intent/classifier.py).
-- **RAG-Based Retrieval**: Uses ChromaDB vector store and FastEmbed embeddings for semantic search (see [edumentor/retrieval/vectorstore.py](edumentor/retrieval/vectorstore.py)).
+- **RAG-Based Retrieval**: Uses FAISS vector store and FastEmbed embeddings for semantic search (see [edumentor/retrieval/vectorstore.py](edumentor/retrieval/vectorstore.py)).
 - **Gemini LLM Integration**: Generates structured answers with citations using Google Gemini via [edumentor/llm/providers.py](edumentor/llm/providers.py).
 - **Source Citations**: Responses include references to pages and documents for verification.
 - **Exam-Focused**: Prompting and response structure tailored for JEE Main, JEE Advanced, and NEET syllabi.
@@ -34,18 +34,18 @@ sequenceDiagram
     participant Intent Classifier
     participant Vector Store
     participant LLM Provider
-    participant ChromaDB
+    participant FAISS
 
     User->>Streamlit UI: Upload PDF
     Streamlit UI->>Vector Store: Ingest PDF
-    Vector Store->>ChromaDB: Store embeddings
+    Vector Store->>FAISS: Store embeddings
 
     User->>Streamlit UI: Ask question
     Streamlit UI->>Intent Classifier: Detect intent
     Intent Classifier-->>Streamlit UI: Return intent type
     Streamlit UI->>Vector Store: Query with question
-    Vector Store->>ChromaDB: Semantic search
-    ChromaDB-->>Vector Store: Return top-k chunks
+    Vector Store->>FAISS: Semantic search
+    FAISS-->>Vector Store: Return top-k chunks
     Vector Store-->>Streamlit UI: Return contexts
     Streamlit UI->>LLM Provider: Generate answer
     LLM Provider-->>Streamlit UI: Structured response
@@ -93,7 +93,7 @@ pip install -r requirements.txt
 Key dependencies (listed in `requirements.txt`):
 
 - `streamlit`
-- `chromadb`
+- `faiss-cpu`
 - `fastembed`
 - `pymupdf`
 - `google-generativeai`
@@ -178,9 +178,9 @@ intern 1/
 │   ├── llm/
 │   │   └── providers.py          # LLM provider integration (Gemini)
 │   └── retrieval/
-│       └── vectorstore.py        # ChromaDB vector store operations
+│       └── vectorstore.py        # FAISS vector store operations
 ├── storage/
-│   ├── chroma/                   # ChromaDB persistent storage
+│   ├── faiss/                    # FAISS persistent storage
 │   └── docs/                     # Uploaded PDF documents
 ├── .streamlit/
 │   └── config.toml               # Streamlit theme configuration
@@ -196,7 +196,7 @@ Module descriptions:
 - `edumentor/ingest/ingest.py`: Extracts text using PyMuPDF, chunks content, and stores in vector DB. See [edumentor/ingest/ingest.py](edumentor/ingest/ingest.py).
 - `edumentor/intent/classifier.py`: Regex-based intent detection. See [edumentor/intent/classifier.py](edumentor/intent/classifier.py).
 - `edumentor/llm/providers.py`: Builds prompts and interfaces with Google Gemini. See [edumentor/llm/providers.py](edumentor/llm/providers.py).
-- `edumentor/retrieval/vectorstore.py`: Manages ChromaDB operations, embeddings, and semantic search. See [edumentor/retrieval/vectorstore.py](edumentor/retrieval/vectorstore.py).
+- `edumentor/retrieval/vectorstore.py`: Manages FAISS operations, embeddings, and semantic search. See [edumentor/retrieval/vectorstore.py](edumentor/retrieval/vectorstore.py).
 
 ---
 
@@ -207,7 +207,7 @@ RAG Pipeline:
 1. **Ingestion**: PDFs are processed page-by-page using `fitz` (PyMuPDF) in [edumentor/ingest/ingest.py](edumentor/ingest/ingest.py).
 2. **Chunking**: Text is split into 800-word chunks with 100-word overlap (see `chunk_text()` in [edumentor/retrieval/vectorstore.py](edumentor/retrieval/vectorstore.py)).
 3. **Embedding**: FastEmbed generates vector embeddings for each chunk.
-4. **Storage**: ChromaDB persists embeddings in `storage/chroma/`.
+4. **Storage**: FAISS persists embeddings in `storage/faiss/`.
 5. **Retrieval**: User questions are embedded and matched to stored chunks using cosine similarity.
 6. **Generation**: Top-k contexts are passed to Gemini with structured prompts from `build_prompt()` in [edumentor/llm/providers.py](edumentor/llm/providers.py).
 
@@ -229,7 +229,7 @@ Intent classification logic (see [edumentor/intent/classifier.py](edumentor/inte
 | **PDF upload fails** | Check PDF is not corrupted and contains selectable text (not scanned images). Use OCR-processed PDFs if needed. |
 | **No results returned** | Ensure PDFs were ingested successfully; check terminal logs for errors. |
 | **Slow embedding generation** | First run downloads FastEmbed model (~100MB); subsequent runs are faster. |
-| **ChromaDB errors** | Remove `storage/chroma/` and re-ingest PDFs. |
+| **FAISS errors** | Remove `storage/faiss/` and re-ingest PDFs. |
 | **Import errors** | Reinstall dependencies: `pip install -r requirements.txt --force-reinstall` |
 | **Port already in use** | Change Streamlit port: `streamlit run app/app.py --server.port 8502` |
 
@@ -279,7 +279,7 @@ Streamlit Theme Customization:
 ## Acknowledgments
 
 - Google Gemini for LLM capabilities
-- ChromaDB for vector storage
+- FAISS for vector storage
 - FastEmbed for efficient embeddings
 - Streamlit for rapid UI development
 - PyMuPDF for PDF processing
