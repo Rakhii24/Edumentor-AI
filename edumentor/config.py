@@ -1,19 +1,22 @@
 import os
 from pathlib import Path
 from typing import Optional
-from dotenv import load_dotenv
 from pydantic import BaseModel
-
-load_dotenv()
 
 
 class Settings(BaseModel):
-    google_api_key: Optional[str] = os.getenv("Google_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    # ✅ Streamlit Secrets compatible
+    google_api_key: Optional[str] = os.getenv("GOOGLE_API_KEY")
+
+    # Gemini model (optional override via Secrets)
     model_gemini: str = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+
+    # Storage directory
     storage_dir: Path = Path(os.getenv("STORAGE_DIR", "storage"))
 
     @property
     def chroma_dir(self) -> Path:
+        # (Name kept for backward compatibility, even though FAISS is used)
         return self.storage_dir / "chroma"
 
     @property
