@@ -4,7 +4,7 @@
 import sys
 from pathlib import Path
 
-ROOT_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 # =========================
@@ -16,7 +16,6 @@ from edumentor.ingest.ingest import ingest_pdf, save_uploaded
 from edumentor.retrieval.vectorstore import VectorStore
 from edumentor.intent.classifier import detect_intent
 from edumentor.llm.providers import LLM
-
 
 # -----------------------------
 # Page config
@@ -39,6 +38,7 @@ top_k = st.sidebar.slider(
     1, 10, 5
 )
 
+# API key warning
 if not settings.google_api_key:
     st.sidebar.warning("Add your API key in Streamlit Secrets and restart the app.")
 
@@ -64,7 +64,7 @@ if uploaded:
 llm = LLM()
 vs = VectorStore("edumentor")   # FAISS-backed vector store
 
-# ✅ Vector store status
+# Vector store status
 if vs.index.ntotal == 0:
     st.sidebar.warning("⚠️ No documents indexed. Upload PDFs.")
 else:
@@ -77,10 +77,30 @@ st.title("Agentic Tutoring for JEE/NEET")
 
 css = """
 <style>
-.answer-card {background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,0.04);} 
-.section-title {font-weight:600;margin-top:8px;margin-bottom:6px;color:#111827;} 
-.chip {display:inline-block;background:#F5F7FA;border:1px solid #e5e7eb;border-radius:999px;padding:4px 10px;margin:3px;color:#374151;font-size:12px;} 
-.prompt {font-size:16px}
+.answer-card {
+    background:#ffffff;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    padding:16px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.04);
+}
+.section-title {
+    font-weight:600;
+    margin-top:8px;
+    margin-bottom:6px;
+    color:#111827;
+}
+.chip {
+    display:inline-block;
+    background:#F5F7FA;
+    border:1px solid #e5e7eb;
+    border-radius:999px;
+    padding:4px 10px;
+    margin:3px;
+    color:#374151;
+    font-size:12px;
+}
+.prompt { font-size:16px }
 </style>
 """
 st.markdown(css, unsafe_allow_html=True)
@@ -118,10 +138,9 @@ if run and q.strip():
     is_summary_query = any(k in q_lower for k in SUMMARY_KEYWORDS)
 
     with st.spinner("Searching study material..."):
-
         contexts = vs.query(q, top_k=top_k)
 
-        # ✅ DOCUMENT-LEVEL SUMMARY (DYNAMIC)
+        # Document-level summary
         if is_summary_query:
             if not contexts:
                 answer = (
@@ -130,7 +149,9 @@ if run and q.strip():
                 )
             else:
                 titles = {c["metadata"].get("title", "") for c in contexts}
-                pages = sorted({c["metadata"].get("page") for c in contexts if c.get("metadata")})
+                pages = sorted(
+                    {c["metadata"].get("page") for c in contexts if c.get("metadata")}
+                )
 
                 answer = (
                     "📘 **Document Overview (Auto-Generated)**\n\n"
